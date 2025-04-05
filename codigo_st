@@ -1,0 +1,103 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import seaborn as sns
+import matplotlib.pyplot as plt
+import io
+
+def main():
+    st.title("Aplicación Interactiva de Visualización de Datos")
+    st.write("""
+    Bienvenido/a a esta aplicación de análisis y visualización de datos.
+    Aquí podrás cargar tus datasets, explorar los datos y generar gráficas interactivas.
+    """)
+
+    # ------------------------------------------
+    # 1. Carga de Datasets
+    # ------------------------------------------
+    st.sidebar.title("Cargar Datos")
+    file = st.sidebar.file_uploader("Sube un archivo CSV o Excel", type=["csv", "xlsx", "xls"])
+
+    if file is not None:
+        if file.name.endswith('.csv'):
+            df = pd.read_csv(file)
+        else:
+            df = pd.read_excel(file)
+        
+        st.subheader("Vista Previa del Dataset")
+        st.dataframe(df.head())
+
+        # ------------------------------------------
+        # 2. Análisis Exploratorio
+        # ------------------------------------------
+        st.subheader("Análisis Exploratorio")
+
+        # a) Dimensiones del dataset
+        st.write(f"**Filas**: {df.shape[0]} | **Columnas**: {df.shape[1]}")
+
+        # b) Descripción estadística
+        if st.checkbox("Mostrar estadísticos descriptivos"):
+            st.write(df.describe())
+
+        # c) Seleccionar columnas para filtrar
+        numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
+        categorical_cols = df.select_dtypes(exclude=np.number).columns.tolist()
+
+        st.write("### Filtros")
+        selected_col = st.selectbox("Selecciona una columna categórica para filtrar", options=categorical_cols)
+        if selected_col:
+            unique_values = df[selected_col].unique()
+            selected_value = st.selectbox("Valor:", options=unique_values)
+            filtered_df = df[df[selected_col] == selected_value]
+            st.write(f"Filtrado por {selected_col} = {selected_value}")
+            st.dataframe(filtered_df.head())
+
+        # ------------------------------------------
+        # 3. Visualizaciones Interactivas
+        # ------------------------------------------
+        st.subheader("Visualizaciones Interactivas")
+
+        # a) Gráfico de dispersión (Plotly)
+        st.write("#### Gráfico de Dispersión (Plotly)")
+        if len(numeric_cols) >= 2:
+            x_axis = st.selectbox("Eje X", numeric_cols, index=0)
+            y_axis = st.selectbox("Eje Y", numeric_cols, index=1)
+            scatter_fig = px.scatter(df, x=x_axis, y=y_axis, color=selected_col if selected_col else None)
+            st.plotly_chart(scatter_fig, use_container_width=True)
+        else:
+            st.warning("No hay suficientes columnas numéricas para crear un gráfico de dispersión.")
+
+        # b) Gráfico de barras (Seaborn/Matplotlib)
+        st.write("#### Gráfico de Barras (Seaborn)")
+        if categorical_cols and numeric_cols:
+            cat_col_bar = st.selectbox("Columna Categórica", options=categorical_cols)
+            num_col_bar = st.selectbox("Columna Numérica", options=numeric_cols)
+            fig, ax = plt.subplots()
+            sns.barplot(data=df, x=cat_col_bar, y=num_col_bar, estimator=np.mean, ci=None, ax=ax)
+            plt.xticks(rotation=45)
+            st.pyplot(fig)
+        else:
+            st.warning("No hay suficientes columnas categóricas y/o numéricas para crear un gráfico de barras.")
+
+        # ------------------------------------------
+        # 4. Funcionalidades Adicionales
+        # ------------------------------------------
+        st.subheader("Funciones Adicionales")
+
+        # a) Exportar resultados
+        st.write("#### Exportar Datos Filtrados")
+        if file is not None:
+            csv_export = filtered_df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="Descargar CSV Filtrado",
+                data=csv_export,
+                file_name="datos_filtrados.csv",
+                mime="text/csv"
+            )
+
+    else:
+        st.info("Por favor, carga un archivo CSV o Excel desde la barra lateral.")
+
+if __name__ == "__main__":
+    main()
